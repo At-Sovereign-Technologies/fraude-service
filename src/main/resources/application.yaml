@@ -1,0 +1,26 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: fraude-service
+  datasource:
+    url: jdbc:postgresql://${FRAUDE_DB_HOST:localhost}:${FRAUDE_DB_PORT:5435}/${FRAUDE_DB_NAME:fraude_db}
+    username: ${FRAUDE_DB_USER:fraude_user}
+    password: ${FRAUDE_DB_PASSWORD:fraude_pass}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: fraude
+  flyway:
+    enabled: true
+    schemas: fraude
+    locations: classpath:db/migration
+  jackson:
+    time-zone: America/Bogota
