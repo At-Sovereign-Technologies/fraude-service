@@ -2,15 +2,15 @@ services:
   fraude-postgres:
     image: postgres:15
     environment:
-      POSTGRES_DB: fraude_db
-      POSTGRES_USER: fraude_user
-      POSTGRES_PASSWORD: fraude_pass
+      POSTGRES_DB: ${FRAUDE_DB_NAME:-fraude_db}
+      POSTGRES_USER: ${FRAUDE_DB_USER:-fraude_user}
+      POSTGRES_PASSWORD: ${FRAUDE_DB_PASSWORD:-fraude_pass}
     ports:
       - "5435:5432"
     volumes:
       - fraude_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fraude_user -d fraude_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${FRAUDE_DB_USER:-fraude_user} -d ${FRAUDE_DB_NAME:-fraude_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -18,15 +18,15 @@ services:
       - fraude-net
 
   fraude:
-    build: .
+    image: ghcr.io/at-sovereign-technologies/fraude-service:latest
     ports:
       - "8084:8084"
     environment:
       FRAUDE_DB_HOST: fraude-postgres
       FRAUDE_DB_PORT: 5432
-      FRAUDE_DB_NAME: fraude_db
-      FRAUDE_DB_USER: fraude_user
-      FRAUDE_DB_PASSWORD: fraude_pass
+      FRAUDE_DB_NAME: ${FRAUDE_DB_NAME:-fraude_db}
+      FRAUDE_DB_USER: ${FRAUDE_DB_USER:-fraude_user}
+      FRAUDE_DB_PASSWORD: ${FRAUDE_DB_PASSWORD:-fraude_pass}
     depends_on:
       fraude-postgres:
         condition: service_healthy

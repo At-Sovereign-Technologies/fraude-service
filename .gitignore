@@ -10,3 +10,7 @@ target/
 .vscode/
 hs_err_pid*
 replay_pid*
+
+# Local docker-compose files (dev only)
+docker-compose.yml
+docker-compose-fraude.yml
