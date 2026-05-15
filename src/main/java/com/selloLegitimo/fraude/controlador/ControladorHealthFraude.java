@@ -1,6 +1,7 @@
 package com.selloLegitimo.fraude.controlador;
 
 import com.selloLegitimo.fraude.dto.MetricasAlertasResponse;
+import com.selloLegitimo.fraude.modelo.EstadoAlerta;
 import com.selloLegitimo.fraude.repositorio.RepositorioAlertaFraude;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,7 +43,7 @@ public class ControladorHealthFraude {
 	private Map<String, Long> toMap(java.util.List<Object[]> rows) {
 		return rows.stream()
 			.collect(Collectors.toMap(
-				r -> (String) r[0],
+				r -> r[0] instanceof EstadoAlerta ? ((EstadoAlerta) r[0]).name() : (String) r[0],
 				r -> (Long) r[1],
 				(a, b) -> a + b,
 				LinkedHashMap::new

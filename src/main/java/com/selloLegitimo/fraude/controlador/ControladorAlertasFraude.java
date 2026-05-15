@@ -2,13 +2,19 @@ package com.selloLegitimo.fraude.controlador;
 
 import com.selloLegitimo.fraude.dto.ActualizarEstadoRequest;
 import com.selloLegitimo.fraude.dto.AlertaFraudeResponse;
+import com.selloLegitimo.fraude.dto.TransitionAuditResponse;
+import com.selloLegitimo.fraude.excepcion.ExcepcionEstadoInmutable;
 import com.selloLegitimo.fraude.excepcion.ExcepcionFraude;
 import com.selloLegitimo.fraude.excepcion.ExcepcionRecursoNoEncontrado;
 import com.selloLegitimo.fraude.modelo.AlertaFraude;
+import com.selloLegitimo.fraude.modelo.EstadoAlerta;
+import com.selloLegitimo.fraude.modelo.RegistroAuditoriaCaso;
 import com.selloLegitimo.fraude.repositorio.RepositorioAlertaFraude;
+import com.selloLegitimo.fraude.repositorio.RepositorioAuditoria;
+import com.selloLegitimo.fraude.servicio.ServicioAuditoriaMock;
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -31,20 +37,26 @@ public class ControladorAlertasFraude {
 
 	private static final Logger logger = LoggerFactory.getLogger(ControladorAlertasFraude.class);
 
-	private static final Set<String> STATUS_VALIDOS = Set.of(
-		"PENDING_REVIEW", "UNDER_INVESTIGATION", "CONFIRMED", "DISMISSED");
-
-	private static final java.util.Map<String, Set<String>> TRANSICIONES_VALIDAS = java.util.Map.of(
-		"PENDING_REVIEW", Set.of("UNDER_INVESTIGATION", "DISMISSED"),
-		"UNDER_INVESTIGATION", Set.of("CONFIRMED", "DISMISSED"),
-		"CONFIRMED", Set.of(),
-		"DISMISSED", Set.of()
+	private static final Map<EstadoAlerta, Set<EstadoAlerta>> TRANSICIONES_VALIDAS = Map.of(
+		EstadoAlerta.DETECTADO, Set.of(EstadoAlerta.EN_EVALUACION),
+		EstadoAlerta.EN_EVALUACION, Set.of(EstadoAlerta.EN_INVESTIGACION, EstadoAlerta.DESCARTADO),
+		EstadoAlerta.EN_INVESTIGACION, Set.of(EstadoAlerta.ESCALADO, EstadoAlerta.CONFIRMADO, EstadoAlerta.DESCARTADO),
+		EstadoAlerta.ESCALADO, Set.of(EstadoAlerta.CONFIRMADO, EstadoAlerta.DESCARTADO),
+		EstadoAlerta.CONFIRMADO, Set.of(EstadoAlerta.CERRADO),
+		EstadoAlerta.DESCARTADO, Set.of(EstadoAlerta.CERRADO),
+		EstadoAlerta.CERRADO, Set.of()
 	);
 
 	private final RepositorioAlertaFraude repositorio;
+	private final ServicioAuditoriaMock servicioAuditoria;
+	private final RepositorioAuditoria repositorioAuditoria;
 
-	public ControladorAlertasFraude(RepositorioAlertaFraude repositorio) {
+	public ControladorAlertasFraude(RepositorioAlertaFraude repositorio,
+		ServicioAuditoriaMock servicioAuditoria,
+		RepositorioAuditoria repositorioAuditoria) {
 		this.repositorio = repositorio;
+		this.servicioAuditoria = servicioAuditoria;
+		this.repositorioAuditoria = repositorioAuditoria;
 	}
 
 	@GetMapping
@@ -58,7 +70,7 @@ public class ControladorAlertasFraude {
 		Pageable pageable = PageRequest.of(page, size);
 		Page<AlertaFraude> alertas;
 		if (status != null) {
-			alertas = repositorio.findByStatus(status.toUpperCase(), pageable);
+			alertas = repositorio.findByStatus(EstadoAlerta.valueOf(status.toUpperCase()), pageable);
 		} else if (severity != null) {
 			alertas = repositorio.findBySeverityLevel(severity.toUpperCase(), pageable);
 		} else if (typologyId != null) {
@@ -87,29 +99,55 @@ public class ControladorAlertasFraude {
 			.orElseThrow(() -> new ExcepcionRecursoNoEncontrado(
 				"No existe alerta con uuid " + alertUuid));
 
-		String nuevoEstado = request.getStatus().toUpperCase();
-		if (!STATUS_VALIDOS.contains(nuevoEstado)) {
-			throw new ExcepcionFraude("Estado invalido: " + request.getStatus());
+		if (alerta.getStatus() == EstadoAlerta.CERRADO) {
+			throw new ExcepcionEstadoInmutable(
+				"La alerta " + alertUuid + " esta en estado CERRADO y no permite modificaciones");
 		}
 
-		Set<String> permitidas = TRANSICIONES_VALIDAS.get(alerta.getStatus());
+		EstadoAlerta nuevoEstado = request.getStatus();
+		Set<EstadoAlerta> permitidas = TRANSICIONES_VALIDAS.get(alerta.getStatus());
 		if (permitidas == null || !permitidas.contains(nuevoEstado)) {
 			throw new ExcepcionFraude(
 				"Transicion invalida: " + alerta.getStatus() + " -> " + nuevoEstado);
 		}
 
-		alerta.setStatus(nuevoEstado);
-		alerta.setAssignedTo(request.getAssignedTo());
+		String actorId = request.getActorId() != null ? request.getActorId() : "unknown";
 
-		if ("CONFIRMED".equals(nuevoEstado) || "DISMISSED".equals(nuevoEstado)) {
+		EstadoAlerta estadoAnterior = alerta.getStatus();
+		alerta.setStatus(nuevoEstado);
+		alerta.setLastActorId(actorId);
+		alerta.setLastTransitionAt(LocalDateTime.now());
+
+		if (request.getAssignedTo() != null) {
+			alerta.setAssignedTo(request.getAssignedTo());
+		}
+
+		if (nuevoEstado == EstadoAlerta.CONFIRMADO || nuevoEstado == EstadoAlerta.DESCARTADO) {
 			alerta.setResolvedAt(LocalDateTime.now());
-			alerta.setResolvedBy(request.getAssignedTo());
+			alerta.setResolvedBy(actorId);
 			alerta.setResolutionNotes(request.getResolutionNotes());
 		}
 
+		if (nuevoEstado == EstadoAlerta.CERRADO) {
+			alerta.setClosedAt(LocalDateTime.now());
+			alerta.setClosedBy(actorId);
+		}
+
 		AlertaFraude guardada = repositorio.save(alerta);
-		logger.info("Alerta {} estado actualizado: {} -> {} por {}",
-			alertUuid, alerta.getStatus(), nuevoEstado, request.getAssignedTo());
+
+		TransitionAuditResponse audit = servicioAuditoria.registrarTransicion(
+			alertUuid, estadoAnterior, nuevoEstado, actorId);
+
+		RegistroAuditoriaCaso registro = new RegistroAuditoriaCaso();
+		registro.setAlertUuid(alertUuid);
+		registro.setActorId(actorId);
+		registro.setFromStatus(estadoAnterior != null ? estadoAnterior.name() : null);
+		registro.setToStatus(nuevoEstado.name());
+		registro.setTransitionTimestamp(LocalDateTime.now());
+		repositorioAuditoria.save(registro);
+
+		logger.info("Alerta {} transicion: {} -> {} por {} (auditId={})",
+			alertUuid, estadoAnterior, nuevoEstado, actorId, audit.getMockAuditLogId());
 
 		return ResponseEntity.ok(convertirARespuesta(guardada));
 	}
@@ -121,8 +159,12 @@ public class ControladorAlertasFraude {
 		response.setSeverityLevel(alerta.getSeverityLevel());
 		response.setRiskScore(alerta.getRiskScore());
 		response.setRiskScoreSource(alerta.getRiskScoreSource());
-		response.setStatus(alerta.getStatus());
+		response.setStatus(alerta.getStatus() != null ? alerta.getStatus().name() : null);
 		response.setCreatedAt(alerta.getCreatedAt());
+		response.setClosedAt(alerta.getClosedAt());
+		response.setClosedBy(alerta.getClosedBy());
+		response.setLastActorId(alerta.getLastActorId());
+		response.setLastTransitionAt(alerta.getLastTransitionAt());
 
 		AlertaFraudeResponse.SourceReference ref = new AlertaFraudeResponse.SourceReference();
 		ref.setOriginEventId(alerta.getOriginEventId());

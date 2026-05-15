@@ -4,8 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.selloLegitimo.fraude.dto.AlertaFraudeResponse;
 import com.selloLegitimo.fraude.dto.ReportarEventoRequest;
+import com.selloLegitimo.fraude.evento.AlertaCriticaEvent;
 import com.selloLegitimo.fraude.excepcion.ExcepcionHashNoCoincide;
 import com.selloLegitimo.fraude.modelo.AlertaFraude;
+import com.selloLegitimo.fraude.modelo.EstadoAlerta;
+import com.selloLegitimo.fraude.modelo.NivelSeveridad;
 import com.selloLegitimo.fraude.modelo.Tipologia;
 import com.selloLegitimo.fraude.repositorio.RepositorioAlertaFraude;
 import com.selloLegitimo.fraude.scoring.RiskEvaluator;
@@ -16,6 +19,7 @@ import java.util.HexFormat;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,12 +33,16 @@ public class ProcesadorEventosFraude {
 	private final ClasificadorTipologia clasificador;
 	private final RiskEvaluator riskEvaluator;
 
+	private final ApplicationEventPublisher eventPublisher;
+
 	public ProcesadorEventosFraude(RepositorioAlertaFraude repositorioAlerta,
 		ClasificadorTipologia clasificador,
-		RiskEvaluator riskEvaluator) {
+		RiskEvaluator riskEvaluator,
+		ApplicationEventPublisher eventPublisher) {
 		this.repositorioAlerta = repositorioAlerta;
 		this.clasificador = clasificador;
 		this.riskEvaluator = riskEvaluator;
+		this.eventPublisher = eventPublisher;
 	}
 
 	@Transactional
@@ -58,7 +66,7 @@ public class ProcesadorEventosFraude {
 		alerta.setSeverityLevel(tipologia.getDefaultSeverity());
 		alerta.setRiskScore(riesgo.score());
 		alerta.setRiskScoreSource(riesgo.source());
-		alerta.setStatus("PENDING_REVIEW");
+		alerta.setStatus(EstadoAlerta.DETECTADO);
 		alerta.setOriginModule(request.getSource());
 		alerta.setOriginEventId(request.getOriginEventId());
 		alerta.setVerificationHash(request.getVerificationHash());
@@ -81,6 +89,16 @@ public class ProcesadorEventosFraude {
 		}
 
 		AlertaFraude guardada = repositorioAlerta.save(alerta);
+
+		if (NivelSeveridad.CRITICAL.name().equals(tipologia.getDefaultSeverity())) {
+			String constituency = request.getLogicalLocation() != null
+				? request.getLogicalLocation().getConstituency() : null;
+			eventPublisher.publishEvent(new AlertaCriticaEvent(
+				guardada.getAlertUuid(), tipologia.getId(), constituency));
+			logger.info("[RNF-SEG-007] Evento CRITICO publicado alerta={} tipologia={}",
+				guardada.getAlertUuid(), tipologia.getId());
+		}
+
 		logger.info("Alerta generada uuid={} tipologia={} severidad={} score={} origen={}/{}",
 			guardada.getAlertUuid(), tipologia.getId(), tipologia.getDefaultSeverity(),
 			riesgo.score(), request.getSource(), request.getOriginEventId());
@@ -114,8 +132,12 @@ public class ProcesadorEventosFraude {
 		response.setSeverityLevel(alerta.getSeverityLevel());
 		response.setRiskScore(alerta.getRiskScore());
 		response.setRiskScoreSource(alerta.getRiskScoreSource());
-		response.setStatus(alerta.getStatus());
+		response.setStatus(alerta.getStatus() != null ? alerta.getStatus().name() : null);
 		response.setCreatedAt(alerta.getCreatedAt());
+		response.setClosedAt(alerta.getClosedAt());
+		response.setClosedBy(alerta.getClosedBy());
+		response.setLastActorId(alerta.getLastActorId());
+		response.setLastTransitionAt(alerta.getLastTransitionAt());
 
 		AlertaFraudeResponse.SourceReference ref = new AlertaFraudeResponse.SourceReference();
 		ref.setOriginEventId(alerta.getOriginEventId());

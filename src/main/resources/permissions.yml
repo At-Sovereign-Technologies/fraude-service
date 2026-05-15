@@ -1,0 +1,86 @@
+permissions:
+  FRAUD_ANALYST:
+    ALERTAS:
+      - READ
+    EVIDENCIAS:
+      - READ
+      - CREATE
+    CIERRE: []
+    METRICAS:
+      - READ
+    AUDITORIA: []
+    TIPOLOGIAS:
+      - READ
+    NOTIFICACIONES:
+      - READ
+
+  SUPERVISOR:
+    ALERTAS:
+      - READ
+      - UPDATE_STATUS
+    EVIDENCIAS:
+      - READ
+      - CREATE
+    CIERRE:
+      - CREATE
+      - READ
+    METRICAS:
+      - READ
+    AUDITORIA:
+      - READ
+    TIPOLOGIAS:
+      - READ
+    NOTIFICACIONES:
+      - READ
+
+  ACCREDITED_AUDITOR:
+    ALERTAS:
+      - READ
+    EVIDENCIAS:
+      - READ
+    CIERRE:
+      - READ
+    METRICAS:
+      - READ
+    AUDITORIA:
+      - READ
+      - READ_DOSSIER
+    TIPOLOGIAS:
+      - READ
+    NOTIFICACIONES: []
+
+  SITE_M4_CONSUMER:
+    ALERTAS: []
+    EVIDENCIAS: []
+    CIERRE: []
+    METRICAS:
+      - READ
+    AUDITORIA: []
+    TIPOLOGIAS: []
+    NOTIFICACIONES: []
+
+  SYSTEM_ADMIN:
+    ALERTAS:
+      - READ
+      - UPDATE_STATUS
+      - DELETE
+    EVIDENCIAS:
+      - READ
+      - CREATE
+      - DELETE
+    CIERRE:
+      - CREATE
+      - READ
+    METRICAS:
+      - READ
+    AUDITORIA:
+      - READ
+      - READ_DOSSIER
+      - VERIFY_CHAIN
+    TIPOLOGIAS:
+      - CREATE
+      - READ
+      - UPDATE
+      - DELETE
+    NOTIFICACIONES:
+      - READ

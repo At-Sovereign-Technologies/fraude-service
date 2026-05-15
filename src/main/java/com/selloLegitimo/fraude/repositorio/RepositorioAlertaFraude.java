@@ -1,6 +1,7 @@
 package com.selloLegitimo.fraude.repositorio;
 
 import com.selloLegitimo.fraude.modelo.AlertaFraude;
+import com.selloLegitimo.fraude.modelo.EstadoAlerta;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,7 +18,7 @@ public interface RepositorioAlertaFraude extends JpaRepository<AlertaFraude, Lon
 
 	Optional<AlertaFraude> findByOriginModuleAndOriginEventId(String originModule, String originEventId);
 
-	Page<AlertaFraude> findByStatus(String status, Pageable pageable);
+	Page<AlertaFraude> findByStatus(EstadoAlerta status, Pageable pageable);
 
 	Page<AlertaFraude> findBySeverityLevel(String severityLevel, Pageable pageable);
 

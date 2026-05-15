@@ -2,6 +2,8 @@ package com.selloLegitimo.fraude.modelo;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -36,8 +38,9 @@ public class AlertaFraude {
 	@Column(name = "risk_score_source", nullable = false, length = 10)
 	private String riskScoreSource;
 
-	@Column(name = "status", nullable = false, length = 20)
-	private String status;
+	@Enumerated(EnumType.STRING)
+	@Column(name = "status", nullable = false, length = 30)
+	private EstadoAlerta status;
 
 	@Column(name = "origin_module", nullable = false, length = 20)
 	private String originModule;
@@ -85,13 +88,25 @@ public class AlertaFraude {
 	@Column(name = "updated_at", nullable = false)
 	private LocalDateTime updatedAt;
 
+	@Column(name = "closed_at")
+	private LocalDateTime closedAt;
+
+	@Column(name = "closed_by", length = 100)
+	private String closedBy;
+
+	@Column(name = "last_actor_id", length = 100)
+	private String lastActorId;
+
+	@Column(name = "last_transition_at")
+	private LocalDateTime lastTransitionAt;
+
 	@PrePersist
 	public void prePersist() {
 		if (alertUuid == null) {
 			alertUuid = UUID.randomUUID();
 		}
 		if (status == null) {
-			status = "PENDING_REVIEW";
+			status = EstadoAlerta.DETECTADO;
 		}
 		if (riskScore == null) {
 			riskScore = 0;
@@ -134,8 +149,8 @@ public class AlertaFraude {
 	public String getRiskScoreSource() { return riskScoreSource; }
 	public void setRiskScoreSource(String riskScoreSource) { this.riskScoreSource = riskScoreSource; }
 
-	public String getStatus() { return status; }
-	public void setStatus(String status) { this.status = status; }
+	public EstadoAlerta getStatus() { return status; }
+	public void setStatus(EstadoAlerta status) { this.status = status; }
 
 	public String getOriginModule() { return originModule; }
 	public void setOriginModule(String originModule) { this.originModule = originModule; }
@@ -181,4 +196,16 @@ public class AlertaFraude {
 
 	public LocalDateTime getUpdatedAt() { return updatedAt; }
 	public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+	public LocalDateTime getClosedAt() { return closedAt; }
+	public void setClosedAt(LocalDateTime closedAt) { this.closedAt = closedAt; }
+
+	public String getClosedBy() { return closedBy; }
+	public void setClosedBy(String closedBy) { this.closedBy = closedBy; }
+
+	public String getLastActorId() { return lastActorId; }
+	public void setLastActorId(String lastActorId) { this.lastActorId = lastActorId; }
+
+	public LocalDateTime getLastTransitionAt() { return lastTransitionAt; }
+	public void setLastTransitionAt(LocalDateTime lastTransitionAt) { this.lastTransitionAt = lastTransitionAt; }
 }

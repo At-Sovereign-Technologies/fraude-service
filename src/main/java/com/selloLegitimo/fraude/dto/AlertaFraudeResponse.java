@@ -15,6 +15,10 @@ public class AlertaFraudeResponse {
 	private LogicalLocation logicalLocation;
 	private Map<String, Object> contextMetadata;
 	private LocalDateTime createdAt;
+	private LocalDateTime closedAt;
+	private String closedBy;
+	private String lastActorId;
+	private LocalDateTime lastTransitionAt;
 
 	public String getAlertUuid() { return alertUuid; }
 	public void setAlertUuid(String alertUuid) { this.alertUuid = alertUuid; }
@@ -45,6 +49,18 @@ public class AlertaFraudeResponse {
 
 	public LocalDateTime getCreatedAt() { return createdAt; }
 	public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+	public LocalDateTime getClosedAt() { return closedAt; }
+	public void setClosedAt(LocalDateTime closedAt) { this.closedAt = closedAt; }
+
+	public String getClosedBy() { return closedBy; }
+	public void setClosedBy(String closedBy) { this.closedBy = closedBy; }
+
+	public String getLastActorId() { return lastActorId; }
+	public void setLastActorId(String lastActorId) { this.lastActorId = lastActorId; }
+
+	public LocalDateTime getLastTransitionAt() { return lastTransitionAt; }
+	public void setLastTransitionAt(LocalDateTime lastTransitionAt) { this.lastTransitionAt = lastTransitionAt; }
 
 	public static class SourceReference {
 
